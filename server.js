@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
+const logger = require('./utils/logger');
+
+// Load environment variables from .env file
+dotenv.config();
 
 const mappingService = require('./src');
 
@@ -8,8 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
+// Use bodyParser for JSON with increased limit
 app.use(bodyParser.json({limit: '10mb'}));
-app.use(express.json());
 
 app.get('/', (req, res) => {
     res.send('cf-mapping-service is running!');
@@ -21,7 +26,7 @@ app.get('/api/mappings', async (req, res) => {
         const mappings = await mappingService.getMappings(version);
         res.json(mappings);
     } catch (error) {
-        console.error('Error fetching mappings:', error);
+        logger.error('Error fetching mappings:', error);
         res.status(500).json({error: 'Failed to get mappings'});
     }
 });
@@ -32,11 +37,15 @@ app.post('/api/mappings', async (req, res) => {
         const newMapping = await mappingService.addMapping(mapping);
         res.status(201).json(newMapping);
     } catch (error) {
-        console.error('Error adding mapping:', error);
+        logger.error('Error adding mapping:', error);
         res.status(500).json({error: 'Failed to add mapping'});
     }
-})
+});
 
-app.listen(PORT, () => {
-    console.log(`Selector Healing Service running on port ${PORT}`);
+// Start the server with error handling
+const server = app.listen(PORT, () => {
+    logger.info(`CF Mapping Service running on port ${PORT}`);
+}).on('error', (err) => {
+    logger.error('Failed to start server:', err);
+    process.exit(1);
 });

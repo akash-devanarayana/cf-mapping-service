@@ -1,4 +1,4 @@
-export function generateMockMappings(mappings) {
+function generateMockMappings(mappings) {
     mappings.push({
         id: '1',
         originalSelector: '.submit-button',
@@ -69,3 +69,7 @@ export function generateMockMappings(mappings) {
         confidence: 1.0,
     });
 }
+
+module.exports = {
+    generateMockMappings
+};

@@ -1,4 +1,4 @@
-export const SelectorTypes = {
+const SelectorTypes = {
     CLASS: 'class',
     ID: 'id',
     TAG: 'tag',
@@ -10,3 +10,7 @@ export const SelectorTypes = {
 
 // Make the enum object immutable to prevent modifications
 Object.freeze(SelectorTypes);
+
+module.exports = {
+    SelectorTypes
+};
