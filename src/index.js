@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
+const queries = require('./db/queries');
 
 // Database connection
 let db;
@@ -20,30 +21,16 @@ async function initializeDb() {
         });
 
         // Create mappings table if it doesn't exist
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS mappings (
-                id TEXT PRIMARY KEY,
-                originalSelector TEXT NOT NULL,
-                newSelector TEXT NOT NULL,
-                selectorType TEXT NOT NULL,
-                appVersion TEXT,
-                createdAt INTEGER NOT NULL,
-                updatedAt INTEGER,
-                confidence REAL DEFAULT 1.0
-            )
-        `);
+        await db.exec(queries.CREATE_MAPPINGS_TABLE);
 
         // Check if the table is empty and seed with mock data if needed
-        const count = await db.get('SELECT COUNT(*) as count FROM mappings');
+        const count = await db.get(queries.COUNT_MAPPINGS);
         if (count.count === 0) {
             const mockMappings = [];
             generateMockMappings(mockMappings);
 
             // Insert mock mappings into the database
-            const stmt = await db.prepare(`
-                INSERT INTO mappings (id, originalSelector, newSelector, selectorType, appVersion, createdAt, confidence)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `);
+            const stmt = await db.prepare(queries.INSERT_MAPPING);
 
             for (const mapping of mockMappings) {
                 await stmt.run(
@@ -107,9 +94,9 @@ const validateMapping = (mapping) => {
 const getMappings = async (version) => {
     try {
         if (version) {
-            return await db.all('SELECT * FROM mappings WHERE appVersion = ?', version);
+            return await db.all(queries.SELECT_MAPPINGS_BY_VERSION, version);
         } else {
-            return await db.all('SELECT * FROM mappings');
+            return await db.all(queries.SELECT_ALL_MAPPINGS);
         }
     } catch (error) {
         logger.error('Error getting mappings:', error);
@@ -133,10 +120,7 @@ const addMapping = async (mapping) => {
 
         // Insert mapping into database
         await db.run(
-            `INSERT INTO mappings (
-                id, originalSelector, newSelector, selectorType, 
-                appVersion, createdAt, confidence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            queries.INSERT_MAPPING,
             id,
             mapping.originalSelector,
             mapping.newSelector,
@@ -147,7 +131,7 @@ const addMapping = async (mapping) => {
         );
 
         // Return the newly created mapping
-        return await db.get('SELECT * FROM mappings WHERE id = ?', id);
+        return await db.get(queries.SELECT_MAPPING_BY_ID, id);
     } catch (error) {
         logger.error('Error adding mapping:', error);
         throw error;
@@ -167,7 +151,7 @@ const updateMapping = async (mapping) => {
         }
 
         // Check if mapping exists
-        const existingMapping = await db.get('SELECT * FROM mappings WHERE id = ?', mapping.id);
+        const existingMapping = await db.get(queries.SELECT_MAPPING_BY_ID, mapping.id);
         if (!existingMapping) {
             throw new Error(`Mapping with ID ${mapping.id} not found`);
         }
@@ -176,14 +160,7 @@ const updateMapping = async (mapping) => {
 
         // Update mapping in database
         await db.run(
-            `UPDATE mappings SET 
-                originalSelector = COALESCE(?, originalSelector),
-                newSelector = COALESCE(?, newSelector),
-                selectorType = COALESCE(?, selectorType),
-                appVersion = COALESCE(?, appVersion),
-                confidence = COALESCE(?, confidence),
-                updatedAt = ?
-            WHERE id = ?`,
+            queries.UPDATE_MAPPING,
             mapping.originalSelector,
             mapping.newSelector,
             mapping.selectorType,
@@ -194,7 +171,7 @@ const updateMapping = async (mapping) => {
         );
 
         // Return the updated mapping
-        return await db.get('SELECT * FROM mappings WHERE id = ?', mapping.id);
+        return await db.get(queries.SELECT_MAPPING_BY_ID, mapping.id);
     } catch (error) {
         logger.error('Error updating mapping:', error);
         throw error;
@@ -218,7 +195,7 @@ const updateMappingStatus = async (id, status) => {
         }
 
         // Check if mapping exists
-        const existingMapping = await db.get('SELECT * FROM mappings WHERE id = ?', id);
+        const existingMapping = await db.get(queries.SELECT_MAPPING_BY_ID, id);
         if (!existingMapping) {
             throw new Error(`Mapping with ID ${id} not found`);
         }
@@ -226,15 +203,10 @@ const updateMappingStatus = async (id, status) => {
         const timestamp = new Date().getTime();
 
         // Update status in database
-        await db.run(
-            'UPDATE mappings SET status = ?, updatedAt = ? WHERE id = ?',
-            status,
-            timestamp,
-            id
-        );
+        await db.run(queries.UPDATE_MAPPING_STATUS, status, timestamp, id);
 
         // Return the updated mapping
-        return await db.get('SELECT * FROM mappings WHERE id = ?', id);
+        return await db.get(queries.SELECT_MAPPING_BY_ID, id);
     } catch (error) {
         logger.error('Error updating mapping status:', error);
         throw error;
@@ -247,3 +219,4 @@ module.exports = {
     updateMapping,
     updateMappingStatus
 };
+
